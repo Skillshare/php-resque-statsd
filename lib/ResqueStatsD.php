@@ -259,6 +259,10 @@ class ResqueStatsD
             $className = "{$args['callable'][0]}::{$args['callable'][1]}";
         }
 
+        if ($className === 'Job' && !empty($jobOrClass->payload['args'][0]['jobName'])) {
+            $className = $jobOrClass->payload['args'][0]['jobName'];
+        }
+
         return $className;
     }
 }
