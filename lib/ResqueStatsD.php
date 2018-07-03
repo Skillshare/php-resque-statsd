@@ -111,7 +111,7 @@ class ResqueStatsD
 
         if (isset($job->payload['queue_time'])) {
             $queuedTime = round($now - $job->payload['queue_time']) * 1000;
-            $class = self::getJobClass($job);
+            $class = self::getJobClassFromJob($job);
 
             self::sendMetric(self::STATSD_TIMER, 'job.time_in_queue', $queuedTime, [
                 'class' => $class,
@@ -128,7 +128,7 @@ class ResqueStatsD
     public static function afterPerform(Resque_Job $job)
     {
         $executionTime = round(microtime(true) - $job->statsDStartTime) * 1000;
-        $class = self::getJobClass($job);
+        $class = self::getJobClassFromJob($job);
 
         self::sendMetric(self::STATSD_COUNTER, 'job.finished', 1, [
             'class' => $class,
@@ -148,7 +148,7 @@ class ResqueStatsD
      */
     public static function onFailure(Exception $e, Resque_Job $job)
     {
-        $class = self::getJobClass($job);
+        $class = self::getJobClassFromJob($job);
 
         self::sendMetric(self::STATSD_COUNTER, 'job.failed', 1, [
             'class' => $class,
@@ -246,17 +246,13 @@ class ResqueStatsD
         return '|#' . implode(',', $joinedTags);
     }
 
-    private static function getJobClass($jobOrClass, $args = null) {
-        $className = '';
-        if ($args) {
-            $className = $jobOrClass;
-        } else {
-            $args = $jobOrClass->payload['args'];
-            $className = $jobOrClass->payload['class'];
-        }
+    private static function getJobClassFromJob($job) {
+        return self::getJobClass($job->payload['class'], $job->getArguments());
+    }
 
-        if ($className === 'Job' && isset($args['callable'])) {
-            $className = "{$args['callable'][0]}::{$args['callable'][1]}";
+    private static function getJobClass($className, $args = null) {
+        if ($className === 'Job' && isset($args['callable']) && is_array($args['callable'])) {
+            $className = implode('::', $args['callable']);
         }
 
         return $className;
